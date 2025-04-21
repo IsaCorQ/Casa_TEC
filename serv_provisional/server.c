@@ -7,6 +7,10 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <time.h>
+#include <openssl/hmac.h>
+#include <openssl/bio.h>
+#include <openssl/evp.h>
+
 
 #define PORT 5000
 #define BUFFER_SIZE 4096
@@ -39,8 +43,10 @@ const char* headers =
     "Content-Type: application/json\r\n"
     "Access-Control-Allow-Origin: *\r\n"
     "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
-    "Access-Control-Allow-Headers: Content-Type\r\n"
+    "Access-Control-Allow-Headers: Content-Type, Authorization\r\n"
     "Connection: close\r\n\r\n";
+
+const char* STORED_HASH = "5aa683681ce6bf58eb76d57d904420036f71af99f6d1e7da875b1f9e3413a392";
 
 void send_error(int socket, int code, const char* message) {
     char response[512];
@@ -52,6 +58,87 @@ void send_error(int socket, int code, const char* message) {
         code, message);
     
     write(socket, response, strlen(response));
+}
+
+int base64_decode(const char* input, char** output) {
+    BIO *bio, *b64;
+    size_t len = strlen(input);
+    *output = (char*)malloc(len);
+    if (!*output) return -1;
+
+    b64 = BIO_new(BIO_f_base64());
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    bio = BIO_new_mem_buf((void*)input, len);
+    bio = BIO_push(b64, bio);
+
+    int decoded_len = BIO_read(bio, *output, len);
+    BIO_free_all(bio);
+    
+    if (decoded_len <= 0) {
+        free(*output);
+        *output = NULL;
+        return -1;
+    }
+    (*output)[decoded_len] = '\0';
+    return decoded_len;
+}
+
+bool validar_autenticacion(char* buffer) {
+    char* auth_header = strstr(buffer, "Authorization: Basic ");
+    if (!auth_header) return false;
+
+    char* token_start = auth_header + strlen("Authorization: Basic ");
+    char* token_end = strstr(token_start, "\r\n");
+    if (!token_end) return false;
+
+    size_t token_len = token_end - token_start;
+    char* base64_token = malloc(token_len + 1);
+    memcpy(base64_token, token_start, token_len);
+    base64_token[token_len] = '\0';
+
+    char* decoded_token = NULL;
+    int decoded_len = base64_decode(base64_token, &decoded_token);
+    free(base64_token);
+
+    if (decoded_len <= 0 || !decoded_token) {
+        if (decoded_token) free(decoded_token);
+        return false;
+    }
+
+    char* colon = strchr(decoded_token, ':');
+    if (!colon) {
+        free(decoded_token);
+        return false;
+    }
+
+    *colon = '\0';
+    char* username = decoded_token;
+    char* password = colon + 1;
+
+    if (strcmp(username, "admin") != 0) {
+        free(decoded_token);
+        return false;
+    }
+
+    // Calcular HMAC-SHA256 con la secret key
+    unsigned char hmac_result[32];
+    HMAC(
+        EVP_sha256(),
+        "beticomijefecito", 16,  // Secret key y su longitud
+        (unsigned char*)password, strlen(password),
+        hmac_result, NULL
+    );
+
+    // Convertir a hexadecimal
+    char hmac_hex[65];
+    for (int i = 0; i < 32; i++) {
+        sprintf(hmac_hex + (i*2), "%02x", hmac_result[i]);
+    }
+    hmac_hex[64] = '\0';
+
+    bool valido = (strcmp(hmac_hex, STORED_HASH) == 0);
+    free(decoded_token);
+    return valido;
 }
 
 char* generar_json_luces() {
@@ -122,6 +209,14 @@ void* manejar_cliente(void* socket_ptr) {
     // Manejar OPTIONS (CORS preflight)
     if (strcmp(metodo, "OPTIONS") == 0) {
         write(socket, headers, strlen(headers));
+        close(socket);
+        free(socket_ptr);
+        return NULL;
+    }
+
+    // Validar autenticación para otros métodos
+    if (!validar_autenticacion(buffer)) {
+        send_error(socket, 401, "Acceso no autorizado");
         close(socket);
         free(socket_ptr);
         return NULL;

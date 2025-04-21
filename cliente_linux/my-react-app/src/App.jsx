@@ -2,44 +2,78 @@ import React, { useState, useEffect } from "react";
 import "./App.css";
 
 function App() {
-  const [luces, setLuces] = useState({
-    cuarto1: false,
-    cuarto2: false,
-    sala: false,
-    comedor: false,
-    cocina: false,
-  });
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [authHeader, setAuthHeader] = useState("");
+  const [credentials, setCredentials] = useState(null); // Almacenar credenciales
 
-  const [puertas, setPuertas] = useState({
-    delantera: false,
-    trasera: false,
-    cuarto1: false,
-    cuarto2: false,
-  });
-
+  
+  const [luces, setLuces] = useState({/*...*/});
+  const [puertas, setPuertas] = useState({/*...*/});
   const [foto, setFoto] = useState(null);
 
-  // Función para obtener el estado de las luces desde el servidor
-  const obtenerEstadoLuces = async () => {
+  // Función para manejar el login
+  const handleLogin = async (e) => {
+    e.preventDefault();
     try {
-      const response = await fetch("http://127.0.0.1:5000/estado_luces");
-      const data = await response.json();
-      setLuces(data);
+      // Generar token temporal para la verificación
+      const token = btoa(`${username}:${password}`);
+      
+      // Verificar credenciales con una solicitud
+      const testResponse = await fetch("http://127.0.0.1:5000/estado_luces", {
+        headers: { Authorization: `Basic ${token}` }
+      });
+      
+      if (!testResponse.ok) throw new Error("Credenciales inválidas");
+      
+      // Si es válido, guardar credenciales en base64
+      setCredentials(token);
+      setIsLoggedIn(true);
+      setAuthError("");
+      
     } catch (error) {
-      console.error("Error obteniendo estado de las luces:", error);
+      setAuthError(error.message);
+      setIsLoggedIn(false);
     }
   };
 
-  // Función para encender/apagar una luz
-  // Modifica el fetch para capturar mejor los errores
-const toggleLuz = async (luz) => {
-  try {
-    const endpoint = luces[luz] ? "/apagar_luz" : "/encender_luz";
-    const response = await fetch(`http://127.0.0.1:5000${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ luz }),
-    });
+  // Función de fetch protegida
+  const authFetch = async (url, options = {}) => {
+    const headers = {
+      ...options.headers,
+      Authorization: `Basic ${credentials}`
+    };
+    
+    const response = await fetch(url, { ...options, headers });
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`);
+    }
+    
+    return response;
+  };
+
+   // Modificar las funciones de obtención de datos
+   const obtenerEstadoLuces = async () => {
+    try {
+      const response = await authFetch("http://127.0.0.1:5000/estado_luces");
+      const data = await response.json();
+      setLuces(data);
+    } catch (error) {
+      console.error("Error obteniendo luces:", error.message);
+    }
+  };
+
+  const toggleLuz = async (luz) => {
+    try {
+      const endpoint = luces[luz] ? "/apagar_luz" : "/encender_luz";
+      const response = await authFetch(`http://127.0.0.1:5000${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ luz }),
+      });
     
     console.log("Response status:", response.status);  // <- Agrega esto
     const data = await response.json();
@@ -51,17 +85,15 @@ const toggleLuz = async (luz) => {
   }
 };
 
-// Obtener estado de puertas
-  const obtenerEstadoPuertas = async () => {
-    try {
-      const response = await fetch("http://127.0.0.1:5000/estado_puertas");
-      if (!response.ok) throw new Error("Error HTTP: " + response.status);
-      const data = await response.json();
-      setPuertas(data);
-    } catch (error) {
-      console.error("Error obteniendo puertas:", error);
-    }
-  };
+const obtenerEstadoPuertas = async () => {
+  try {
+    const response = await authFetch("http://127.0.0.1:5000/estado_puertas");
+    const data = await response.json();
+    setPuertas(data);
+  } catch (error) {
+    console.error("Error obteniendo puertas:", error.message);
+  }
+};
 
   // Función para actualizar el estado de una puerta
   const actualizarPuerta = async (puerta, estado) => {
@@ -88,14 +120,59 @@ const toggleLuz = async (luz) => {
     }
   };
 
-  // Actualizar el estado de las puertas cada 5 segundos
+  // Añadir función de logout
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setAuthHeader("");
+    setUsername("");
+    setPassword("");
+  };
+
+  // Actualizar el efecto para cargar datos iniciales
   useEffect(() => {
-    const interval = setInterval(obtenerEstadoPuertas, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (isLoggedIn) {
+      obtenerEstadoLuces();
+      obtenerEstadoPuertas();
+      
+      const interval = setInterval(obtenerEstadoPuertas, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [isLoggedIn]);
+
+  // Render condicional
+  if (!isLoggedIn) {
+    return (
+      <div className="login-container">
+        <h2>Autenticación Requerida</h2>
+        <form onSubmit={handleLogin} className="login-form">
+          <input
+            type="text"
+            placeholder="Usuario"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <button type="submit">Ingresar</button>
+          {authError && <p className="error-message">{authError}</p>}
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="App">
+      <div className="header-bar">
+        <button onClick={handleLogout} className="logout-button">
+          Cerrar Sesión
+        </button>
+      </div>
       <h1>Control y Monitoreo de Casa Inteligente</h1>
       <div className="dashboard">
         <div className="luces">
