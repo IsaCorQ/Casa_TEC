@@ -8,6 +8,7 @@ function App() {
   const [authError, setAuthError] = useState("");
   const [authHeader, setAuthHeader] = useState("");
   const [credentials, setCredentials] = useState(null); // Almacenar credenciales
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
 
   
   const [luces, setLuces] = useState({/*...*/});
@@ -53,17 +54,6 @@ function App() {
     }
     
     return response;
-  };
-
-   // Modificar las funciones de obtención de datos
-   const obtenerEstadoLuces = async () => {
-    try {
-      const response = await authFetch("http://127.0.0.1:5000/estado_luces");
-      const data = await response.json();
-      setLuces(data);
-    } catch (error) {
-      console.error("Error obteniendo luces:", error.message);
-    }
   };
 
   const toggleLuz = async (luz) => {
@@ -131,10 +121,27 @@ const obtenerEstadoPuertas = async () => {
   // Actualizar el efecto para cargar datos iniciales
   useEffect(() => {
     if (isLoggedIn) {
-      obtenerEstadoLuces();
-      obtenerEstadoPuertas();
-      
-      const interval = setInterval(obtenerEstadoPuertas, 5000);
+      const fetchUpdates = async () => {
+        try {
+          const [lucesRes, puertasRes] = await Promise.all([
+            authFetch(`http://127.0.0.1:5000/estado_luces`),
+            authFetch(`http://127.0.0.1:5000/estado_puertas`)
+          ]);
+          
+          if (lucesRes.status === 304 && puertasRes.status === 304) return;
+          
+          const lucesData = await lucesRes.json();
+          const puertasData = await puertasRes.json();
+          
+          setLuces(prev => ({ ...prev, ...lucesData }));
+          setPuertas(prev => ({ ...prev, ...puertasData }));
+          setLastUpdate(Date.now());
+        } catch (error) {
+          console.error('Error actualizando estados:', error);
+        }
+      };
+  
+      const interval = setInterval(fetchUpdates, 300);
       return () => clearInterval(interval);
     }
   }, [isLoggedIn]);
