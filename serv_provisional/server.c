@@ -168,6 +168,7 @@ char* generar_json_puertas() {
     return json;
 }
 
+// AQUI SE HACE LOS CAMBIOS DE LA PUERTA
 void* cambiar_puertas(void* arg) {
     const char* puertas[] = {"delantera", "trasera", "cuarto1", "cuarto2"};
     
@@ -256,6 +257,7 @@ void* manejar_cliente(void* socket_ptr) {
         bool nuevo_estado = (strcmp(ruta, "/encender_luz") == 0);
         pthread_mutex_lock(&luces_mutex);
         
+        // AQUI SE HACE LO DE LAS LUCES
         if(strcmp(valor, "cuarto1") == 0) estado_luces.cuarto1 = nuevo_estado;
         else if(strcmp(valor, "cuarto2") == 0) estado_luces.cuarto2 = nuevo_estado;
         else if(strcmp(valor, "sala") == 0) estado_luces.sala = nuevo_estado;
