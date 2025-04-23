@@ -23,7 +23,7 @@ function App() {
       const token = btoa(`${username}:${password}`);
       
       // Verificar credenciales con una solicitud
-      const testResponse = await fetch("http://127.0.0.1:5000/estado_luces", {
+      const testResponse = await fetch("http://10.42.0.58:5000/estado_luces", {
         headers: { Authorization: `Basic ${token}` }
       });
       
@@ -59,7 +59,7 @@ function App() {
   const toggleLuz = async (luz) => {
     try {
       const endpoint = luces[luz] ? "/apagar_luz" : "/encender_luz";
-      const response = await authFetch(`http://127.0.0.1:5000${endpoint}`, {
+      const response = await authFetch(`http://10.42.0.58:5000${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ luz }),
@@ -77,7 +77,7 @@ function App() {
 
 const obtenerEstadoPuertas = async () => {
   try {
-    const response = await authFetch("http://127.0.0.1:5000/estado_puertas");
+    const response = await authFetch("http://10.42.0.58:5000/estado_puertas");
     const data = await response.json();
     setPuertas(data);
   } catch (error) {
@@ -88,7 +88,7 @@ const obtenerEstadoPuertas = async () => {
   // Función para actualizar el estado de una puerta
   const actualizarPuerta = async (puerta, estado) => {
     try {
-      await fetch("http://127.0.0.1:5000/actualizar_puerta", {
+      await fetch("http://10.42.0.58:5000/actualizar_puerta", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ puerta, estado }),
@@ -102,7 +102,7 @@ const obtenerEstadoPuertas = async () => {
   // Función para tomar una foto
   const tomarFoto = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:5000/tomar_foto");
+      const response = await fetch("http://10.42.0.58:5000/tomar_foto");
       const blob = await response.blob();
       setFoto(URL.createObjectURL(blob));
     } catch (error) {
@@ -124,8 +124,8 @@ const obtenerEstadoPuertas = async () => {
       const fetchUpdates = async () => {
         try {
           const [lucesRes, puertasRes] = await Promise.all([
-            authFetch(`http://127.0.0.1:5000/estado_luces`),
-            authFetch(`http://127.0.0.1:5000/estado_puertas`)
+            authFetch(`http://10.42.0.58:5000/estado_luces`),
+            authFetch(`http://10.42.0.58:5000/estado_puertas`)
           ]);
           
           if (lucesRes.status === 304 && puertasRes.status === 304) return;
