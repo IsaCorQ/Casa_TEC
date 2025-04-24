@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <gpio.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -14,21 +15,25 @@
 
 #define PORT 5000
 #define BUFFER_SIZE 4096
+#define NUM_PUERTAS 5
+#define NUM_LUCES 6
 
 // Estructuras de estado
 typedef struct {
-    bool cuarto1;
-    bool cuarto2;
+    bool cuarto;
+    bool oficina;
     bool sala;
-    bool comedor;
+    bool patio;
     bool cocina;
+    bool bano;
 } Luces;
 
 typedef struct {
     bool delantera;
     bool trasera;
-    bool cuarto1;
-    bool cuarto2;
+    bool cuarto;
+    bool oficina;
+    bool bano;
 } Puertas;
 
 // Variables globales con mutexes
@@ -36,6 +41,27 @@ Luces estado_luces = {false};
 Puertas estado_puertas = {false};
 pthread_mutex_t luces_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t puertas_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+int pins_puerta[NUM_PUERTAS] = {514,515,516,529,534};
+int pins_luz[NUM_LUCES] = {519,513,524,528,532,533};
+
+static void initialize_pins(){
+	
+	//Luces
+	pinMode(519, OUTPUT); //cuarto
+	pinMode(513, OUTPUT); //oficina
+	pinMode(524, OUTPUT); //sala
+	pinMode(528, OUTPUT); //patio
+	pinMode(532, OUTPUT); //cocina
+    pinMode(533, OUTPUT); //bano
+	
+	//Puertas
+	pinMode(514, INPUT); //delantera
+	pinMode(515, INPUT); //trasera
+	pinMode(516, INPUT); //cuarto
+	pinMode(529, INPUT); //oficina
+    pinMode(534, INPUT); //bano
+}
 
 // Headers comunes
 const char* headers = 
@@ -145,12 +171,13 @@ char* generar_json_luces() {
     pthread_mutex_lock(&luces_mutex);
     char* json = malloc(256);
     snprintf(json, 256, 
-        "{\"cuarto1\":%s, \"cuarto2\":%s, \"sala\":%s, \"comedor\":%s, \"cocina\":%s}",
-        estado_luces.cuarto1 ? "true" : "false",
-        estado_luces.cuarto2 ? "true" : "false",
+        "{\"cuarto\":%s, \"oficina\":%s, \"sala\":%s, \"patio\":%s, \"cocina\":%s, \"bano\":%s}",
+        estado_luces.cuarto ? "true" : "false",
+        estado_luces.oficina ? "true" : "false",
         estado_luces.sala ? "true" : "false",
-        estado_luces.comedor ? "true" : "false",
-        estado_luces.cocina ? "true" : "false");
+        estado_luces.patio ? "true" : "false",
+        estado_luces.cocina ? "true" : "false",
+        estado_luces.bano ? "true" : "false");
     pthread_mutex_unlock(&luces_mutex);
     return json;
 }
@@ -159,40 +186,37 @@ char* generar_json_puertas() {
     pthread_mutex_lock(&puertas_mutex);
     char* json = malloc(256);
     snprintf(json, 256,
-        "{\"delantera\":%s, \"trasera\":%s, \"cuarto1\":%s, \"cuarto2\":%s}",
+        "{\"delantera\":%s, \"trasera\":%s, \"cuarto\":%s, \"oficina\":%s, \"bano\":%s}",
         estado_puertas.delantera ? "true" : "false",
         estado_puertas.trasera ? "true" : "false",
-        estado_puertas.cuarto1 ? "true" : "false",
-        estado_puertas.cuarto2 ? "true" : "false");
+        estado_puertas.cuarto ? "true" : "false",
+        estado_puertas.oficina ? "true" : "false",
+        estado_puertas.bano ? "true" : "false");
     pthread_mutex_unlock(&puertas_mutex);
     return json;
 }
 
 // AQUI SE HACE LOS CAMBIOS DE LA PUERTA
-void* cambiar_puertas(void* arg) {
-    const char* puertas[] = {"delantera", "trasera", "cuarto1", "cuarto2"};
-    
-    while(1) {
-        for(int i = 0; i < 4; i++) {
-            sleep(5);
-            pthread_mutex_lock(&puertas_mutex);
-            if(strcmp(puertas[i], "delantera") == 0) estado_puertas.delantera = true;
-            else if(strcmp(puertas[i], "trasera") == 0) estado_puertas.trasera = true;
-            else if(strcmp(puertas[i], "cuarto1") == 0) estado_puertas.cuarto1 = true;
-            else if(strcmp(puertas[i], "cuarto2") == 0) estado_puertas.cuarto2 = true;
-            pthread_mutex_unlock(&puertas_mutex);
-            printf("Puerta %s abierta\n", puertas[i]);
-            
-            sleep(5);
-            pthread_mutex_lock(&puertas_mutex);
-            if(strcmp(puertas[i], "delantera") == 0) estado_puertas.delantera = false;
-            else if(strcmp(puertas[i], "trasera") == 0) estado_puertas.trasera = false;
-            else if(strcmp(puertas[i], "cuarto1") == 0) estado_puertas.cuarto1 = false;
-            else if(strcmp(puertas[i], "cuarto2") == 0) estado_puertas.cuarto2 = false;
-            pthread_mutex_unlock(&puertas_mutex);
-            printf("Puerta %s cerrada\n", puertas[i]);
-        }
-    }
+void* cambiar_puertas() {
+    bool cambio_puerta_d;
+    bool cambio_puerta_t;
+    bool cambio_puerta_c;
+    bool cambio_puerta_o;
+    bool cambio_puerta_b;
+    cambio_puerta_d = digitalRead(514);
+    estado_puertas.delantera = cambio_puerta_d;
+
+    cambio_puerta_t = digitalRead(515);
+    estado_puertas.trasera = cambio_puerta_t;
+
+    cambio_puerta_c = digitalRead(516);
+    estado_puertas.cuarto = cambio_puerta_c;
+
+    cambio_puerta_o = digitalRead(529);
+    estado_puertas.oficina = cambio_puerta_o;
+
+    cambio_puerta_b = digitalRead(534);
+    estado_puertas.bano = cambio_puerta_b;
     return NULL;
 }
 
@@ -231,6 +255,13 @@ void* manejar_cliente(void* socket_ptr) {
         free(json);
     }
     else if(strcmp(ruta, "/estado_puertas") == 0) {
+        cambiar_puertas();
+        char* json = generar_json_puertas();
+        write(socket, headers, strlen(headers));
+        write(socket, json, strlen(json));
+        free(json);
+    }
+    else if(strcmp(ruta, "/tomar_foto") == 0) {
         char* json = generar_json_puertas();
         write(socket, headers, strlen(headers));
         write(socket, json, strlen(json));
@@ -258,11 +289,30 @@ void* manejar_cliente(void* socket_ptr) {
         pthread_mutex_lock(&luces_mutex);
         
         // AQUI SE HACE LO DE LAS LUCES
-        if(strcmp(valor, "cuarto1") == 0) estado_luces.cuarto1 = nuevo_estado;
-        else if(strcmp(valor, "cuarto2") == 0) estado_luces.cuarto2 = nuevo_estado;
-        else if(strcmp(valor, "sala") == 0) estado_luces.sala = nuevo_estado;
-        else if(strcmp(valor, "comedor") == 0) estado_luces.comedor = nuevo_estado;
-        else if(strcmp(valor, "cocina") == 0) estado_luces.cocina = nuevo_estado;
+        if(strcmp(valor, "cuarto") == 0) {
+            estado_luces.cuarto = nuevo_estado;
+            digitalWrite(519, nuevo_estado);
+        }
+        else if(strcmp(valor, "oficina") == 0) {
+            estado_luces.oficina = nuevo_estado;
+            digitalWrite(513, nuevo_estado);
+        }
+        else if(strcmp(valor, "sala") == 0) {
+            estado_luces.sala = nuevo_estado;
+            digitalWrite(524, nuevo_estado);
+        }
+        else if(strcmp(valor, "patio") == 0) {
+            estado_luces.patio = nuevo_estado;
+            digitalWrite(528, nuevo_estado);
+        }
+        else if(strcmp(valor, "cocina") == 0) {
+            estado_luces.cocina = nuevo_estado;
+            digitalWrite(532, nuevo_estado);
+        }
+        else if(strcmp(valor, "bano") == 0) {
+            estado_luces.bano = nuevo_estado;
+            digitalWrite(533, nuevo_estado);
+        }
         else {
             pthread_mutex_unlock(&luces_mutex);
             send_error(socket, 400, "Luz no encontrada");
@@ -292,6 +342,7 @@ void* manejar_cliente(void* socket_ptr) {
 }
 
 int main() {
+    initialize_pins();
     int server_fd, new_socket;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
@@ -323,8 +374,7 @@ int main() {
     
     printf("Servidor escuchando en puerto %d...\n", PORT);
     
-    pthread_t hilo_puertas;
-    pthread_create(&hilo_puertas, NULL, cambiar_puertas, NULL);
+    cambiar_puertas();
     
     while(1) {
         int* new_socket = malloc(sizeof(int));

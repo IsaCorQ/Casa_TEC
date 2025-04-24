@@ -185,16 +185,16 @@ const obtenerEstadoPuertas = async () => {
         <div className="luces">
           <h2>Luces</h2>
           <button
-            onClick={() => toggleLuz("cuarto1")}
-            style={{ backgroundColor: luces.cuarto1 ? "#50fa7b" : "#ff79c6" }}
+            onClick={() => toggleLuz("cuarto")}
+            style={{ backgroundColor: luces.cuarto ? "#50fa7b" : "#ff79c6" }}
           >
-            Cuarto 1: {luces.cuarto1 ? "Encendida" : "Apagada"}
+            Cuarto 1: {luces.cuarto ? "Encendida" : "Apagada"}
           </button>
           <button
-            onClick={() => toggleLuz("cuarto2")}
-            style={{ backgroundColor: luces.cuarto2 ? "#50fa7b" : "#ff79c6" }}
+            onClick={() => toggleLuz("oficina")}
+            style={{ backgroundColor: luces.oficina ? "#50fa7b" : "#ff79c6" }}
           >
-            Cuarto 2: {luces.cuarto2 ? "Encendida" : "Apagada"}
+            Cuarto 2: {luces.oficina ? "Encendida" : "Apagada"}
           </button>
           <button
             onClick={() => toggleLuz("sala")}
@@ -203,16 +203,22 @@ const obtenerEstadoPuertas = async () => {
             Sala: {luces.sala ? "Encendida" : "Apagada"}
           </button>
           <button
-            onClick={() => toggleLuz("comedor")}
-            style={{ backgroundColor: luces.comedor ? "#50fa7b" : "#ff79c6" }}
+            onClick={() => toggleLuz("patio")}
+            style={{ backgroundColor: luces.patio ? "#50fa7b" : "#ff79c6" }}
           >
-            Comedor: {luces.comedor ? "Encendida" : "Apagada"}
+            Comedor: {luces.patio ? "Encendida" : "Apagada"}
           </button>
           <button
             onClick={() => toggleLuz("cocina")}
             style={{ backgroundColor: luces.cocina ? "#50fa7b" : "#ff79c6" }}
           >
             Cocina: {luces.cocina ? "Encendida" : "Apagada"}
+          </button>
+          <button
+            onClick={() => toggleLuz("bano")}
+            style={{ backgroundColor: luces.bano ? "#50fa7b" : "#ff79c6" }}
+          >
+            Baño: {luces.bano ? "Encendida" : "Apagada"}
           </button>
         </div>
         <div className="puertas-camara">
@@ -224,11 +230,14 @@ const obtenerEstadoPuertas = async () => {
             <p data-abierta={puertas.trasera}>
               Puerta Trasera: {puertas.trasera ? "Abierta" : "Cerrada"}
             </p>
-            <p data-abierta={puertas.cuarto1}>
-              Puerta Cuarto 1: {puertas.cuarto1 ? "Abierta" : "Cerrada"}
+            <p data-abierta={puertas.cuarto}>
+              Puerta Cuarto 1: {puertas.cuarto ? "Abierta" : "Cerrada"}
             </p>
-            <p data-abierta={puertas.cuarto2}>
-              Puerta Cuarto 2: {puertas.cuarto2 ? "Abierta" : "Cerrada"}
+            <p data-abierta={puertas.oficina}>
+              Puerta Cuarto 2: {puertas.oficina ? "Abierta" : "Cerrada"}
+            </p>
+            <p data-abierta={puertas.bano}>
+              Puerta Delantera: {puertas.bano ? "Abierta" : "Cerrada"}
             </p>
           </div>
           <div className="camera">
