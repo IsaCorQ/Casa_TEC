@@ -10,6 +10,7 @@
 #include <openssl/hmac.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
+#include <openssl/buffer.h> //AGREGAR ESTA LIBRERIA
 
 
 #define PORT 5000
@@ -81,6 +82,50 @@ int base64_decode(const char* input, char** output) {
     }
     (*output)[decoded_len] = '\0';
     return decoded_len;
+}
+
+
+// AGREGAR ESTA FUNCION:
+
+char* codificar_imagen(const char* directorio, size_t* encoded_len) {
+    FILE* fp = fopen(directorio, "rb");
+    if (!fp) return NULL;
+
+    fseek(fp, 0, SEEK_END);
+    long file_size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    unsigned char* image_data = malloc(file_size);
+    if (!image_data) {
+        fclose(fp);
+        return NULL;
+    }
+
+    fread(image_data, 1, file_size, fp);
+    fclose(fp);
+
+    BIO *bio, *b64;
+    b64 = BIO_new(BIO_f_base64());
+    bio = BIO_new(BIO_s_mem());
+    bio = BIO_push(b64, bio);
+
+    BIO_write(bio, image_data, file_size);
+    BIO_flush(bio);
+    
+    memset(image_data, 0, file_size);
+    free(image_data);
+    image_data = NULL;
+
+    BUF_MEM *bufferPtr;
+    BIO_get_mem_ptr(bio, &bufferPtr);
+    
+    char* encoded = malloc(bufferPtr->length + 1);
+    memcpy(encoded, bufferPtr->data, bufferPtr->length);
+    encoded[bufferPtr->length] = '\0';
+    *encoded_len = bufferPtr->length;
+
+    BIO_free_all(bio);
+    return encoded;
 }
 
 bool validar_autenticacion(char* buffer) {
@@ -235,6 +280,40 @@ void* manejar_cliente(void* socket_ptr) {
         write(socket, json, strlen(json));
         free(json);
     }
+    // AGREGAR ESTE ELSE IF
+    else if(strcmp(ruta, "/tomar_foto") == 0) {
+        const char* directorio_imagen = "/home/dylanggf/Documents/Empotrados/Casa_TEC/serv_provisional/image.jpg"; // Cambiar por tu directorio
+        
+        size_t encoded_len;
+        char* encoded_data = codificar_imagen(directorio_imagen, &encoded_len);
+        
+        if (!encoded_data) {
+            send_error(socket, 500, "Error al procesar la imagen");
+            close(socket);
+            free(socket_ptr);
+            return NULL;
+        }
+    
+        // Construir respuesta
+        char header[512];
+        snprintf(header, sizeof(header),
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: image/jpeg\r\n"
+            "Content-Transfer-Encoding: base64\r\n"
+            "Access-Control-Allow-Origin: *\r\n"
+            "Content-Length: %zu\r\n\r\n",
+            encoded_len);
+    
+        write(socket, header, strlen(header));
+        write(socket, encoded_data, encoded_len);
+    
+        // Limpieza segura
+        memset(encoded_data, 0, encoded_len);
+        free(encoded_data);
+        encoded_data = NULL;
+    }
+
+
     else if(strcmp(ruta, "/encender_luz") == 0 || strcmp(ruta, "/apagar_luz") == 0) {
         char* cuerpo = strstr(buffer, "\r\n\r\n");
         if (!cuerpo) {

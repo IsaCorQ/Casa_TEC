@@ -10,6 +10,8 @@ function App() {
   const [credentials, setCredentials] = useState(null); // Almacenar credenciales
   const [lastUpdate, setLastUpdate] = useState(Date.now());
 
+  const [cargandoFoto, setCargandoFoto] = useState(false); //AGREGAR ESTO
+
   
   const [luces, setLuces] = useState({/*...*/});
   const [puertas, setPuertas] = useState({/*...*/});
@@ -99,16 +101,29 @@ const obtenerEstadoPuertas = async () => {
     }
   };
 
-  // Función para tomar una foto
-  const tomarFoto = async () => {
-    try {
-      const response = await fetch("http://127.0.0.1:5000/tomar_foto");
-      const blob = await response.blob();
-      setFoto(URL.createObjectURL(blob));
-    } catch (error) {
-      console.error("Error tomando la foto:", error);
+  // EDITAR O AGREGAR ESTO, ACUERDESE DE CAMBIAR LA DIRECCION
+const tomarFoto = async () => {
+  setCargandoFoto(true);
+  setFoto(null); // Limpiar foto anterior
+  
+  try {
+    const response = await authFetch("http://127.0.0.1:5000/tomar_foto");
+    
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
     }
-  };
+    
+    const encodedData = await response.text();
+    const imageUrl = `data:image/jpeg;base64,${encodedData}`;
+    setFoto(imageUrl);
+    
+  } catch (error) {
+    console.error("Error tomando la foto:", error);
+    setFoto("error"); // Puedes manejar estados de error específicos
+  } finally {
+    setCargandoFoto(false);
+  }
+};
 
   // Añadir función de logout
   const handleLogout = () => {
@@ -146,7 +161,7 @@ const obtenerEstadoPuertas = async () => {
     }
   }, [isLoggedIn]);
 
-  // Render condicional
+  // Render condicional AGREGAR O CAMBIAR EL <div className="camera"> POR EL DE AQUI
   if (!isLoggedIn) {
     return (
       <div className="login-container">
@@ -233,8 +248,35 @@ const obtenerEstadoPuertas = async () => {
           </div>
           <div className="camera">
             <h2>Cámara</h2>
-            <button onClick={tomarFoto}>Tomar foto del jardín</button>
-            {foto && <img src={foto} alt="Foto del jardín" className="camera-feed" />}
+            <button 
+              onClick={tomarFoto} 
+              disabled={cargandoFoto}
+              className={cargandoFoto ? "loading" : ""}
+            >
+              {cargandoFoto ? (
+                <>
+                  <span className="spinner"></span>
+                  Capturando...
+                </>
+              ) : (
+                "Tomar foto del jardín"
+              )}
+            </button>
+            
+            {foto === "error" && (
+              <p className="error-message">Error al capturar la foto</p>
+            )}
+            
+            {foto && foto !== "error" && (
+              <div className="image-preview">
+                <img 
+                  src={foto} 
+                  alt="Vista previa del jardín" 
+                  onLoad={() => URL.revokeObjectURL(foto)} // Limpiar memoria
+                />
+                <p className="timestamp">{new Date().toLocaleTimeString()}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
