@@ -11,13 +11,17 @@
 #include <openssl/hmac.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
-#include <openssl/buffer.h> //AGREGAR ESTA LIBRERIA
+#include <openssl/buffer.h>
 
 
 #define PORT 5000
 #define BUFFER_SIZE 4096
 #define NUM_PUERTAS 5
 #define NUM_LUCES 6
+
+const char *resolution = "680x420";
+const char *device = "/dev/video0";
+const char *imageName = "/home/root/patio.jpg";
 
 // Estructuras de estado
 typedef struct {
@@ -43,47 +47,53 @@ Puertas estado_puertas = {false};
 pthread_mutex_t luces_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t puertas_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-int pins_puerta[NUM_PUERTAS] = {514,515,516,529,534};
+int pins_puerta[NUM_PUERTAS] = {514,515,516,520,527};
 int pins_luz[NUM_LUCES] = {519,513,524,528,532,533};
 
 static void initialize_pins(){
-	
-	//Luces
-	pinMode(519, OUTPUT); //cuarto
-	pinMode(513, OUTPUT); //oficina
-	pinMode(524, OUTPUT); //sala
-	pinMode(528, OUTPUT); //patio
-	pinMode(532, OUTPUT); //cocina
+
+    //Luces
+    pinMode(519, OUTPUT); //cuarto
+    pinMode(513, OUTPUT); //oficina
+    pinMode(524, OUTPUT); //sala
+    pinMode(528, OUTPUT); //patio
+    pinMode(532, OUTPUT); //cocina
     pinMode(533, OUTPUT); //bano
-	
-	//Puertas
-	pinMode(514, INPUT); //delantera
-	pinMode(515, INPUT); //trasera
-	pinMode(516, INPUT); //cuarto
-	pinMode(529, INPUT); //oficina
-    pinMode(534, INPUT); //bano
+
+    //Puertas
+    pinMode(514, INPUT); //delantera
+    pinMode(515, INPUT); //trasera
+    pinMode(516, INPUT); //cuarto
+    pinMode(520, INPUT); //oficina
+    pinMode(527, INPUT); //bano
+}
+
+void tomarFoto(const char *resolution, const char *device, const char *imageName) {
+    char command[1000];
+    snprintf(command, sizeof(command), "fswebcam -r %s -d %s %s", resolution, device, imageName);
+    system(command);
 }
 
 // Headers comunes
-const char* headers = 
-    "HTTP/1.1 200 OK\r\n"
-    "Content-Type: application/json\r\n"
-    "Access-Control-Allow-Origin: *\r\n"
-    "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
-    "Access-Control-Allow-Headers: Content-Type, Authorization\r\n"
-    "Connection: close\r\n\r\n";
+const char* headers =
+"HTTP/1.1 200 OK\r\n"
+"Content-Type: application/json\r\n"
+"Access-Control-Allow-Origin: *\r\n"
+"Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+"Access-Control-Allow-Headers: Content-Type, Authorization\r\n"
+"Connection: close\r\n\r\n";
 
 const char* STORED_HASH = "5aa683681ce6bf58eb76d57d904420036f71af99f6d1e7da875b1f9e3413a392";
 
 void send_error(int socket, int code, const char* message) {
     char response[512];
     snprintf(response, sizeof(response),
-        "HTTP/1.1 %d Error\r\n"
-        "Content-Type: application/json\r\n"
-        "Access-Control-Allow-Origin: *\r\n\r\n"
-        "{\"error\": \"%s\"}",
-        code, message);
-    
+             "HTTP/1.1 %d Error\r\n"
+             "Content-Type: application/json\r\n"
+             "Access-Control-Allow-Origin: *\r\n\r\n"
+             "{\"error\": \"%s\"}",
+             code, message);
+
     write(socket, response, strlen(response));
 }
 
@@ -100,7 +110,7 @@ int base64_decode(const char* input, char** output) {
 
     int decoded_len = BIO_read(bio, *output, len);
     BIO_free_all(bio);
-    
+
     if (decoded_len <= 0) {
         free(*output);
         *output = NULL;
@@ -109,9 +119,6 @@ int base64_decode(const char* input, char** output) {
     (*output)[decoded_len] = '\0';
     return decoded_len;
 }
-
-
-// AGREGAR ESTA FUNCION:
 
 char* codificar_imagen(const char* directorio, size_t* encoded_len) {
     FILE* fp = fopen(directorio, "rb");
@@ -195,9 +202,9 @@ bool validar_autenticacion(char* buffer) {
     unsigned char hmac_result[32];
     HMAC(
         EVP_sha256(),
-        "beticomijefecito", 16,  // Secret key y su longitud
-        (unsigned char*)password, strlen(password),
-        hmac_result, NULL
+         "beticomijefecito", 16,  // Secret key y su longitud
+         (unsigned char*)password, strlen(password),
+         hmac_result, NULL
     );
 
     // Convertir a hexadecimal
@@ -215,14 +222,14 @@ bool validar_autenticacion(char* buffer) {
 char* generar_json_luces() {
     pthread_mutex_lock(&luces_mutex);
     char* json = malloc(256);
-    snprintf(json, 256, 
-        "{\"cuarto\":%s, \"oficina\":%s, \"sala\":%s, \"patio\":%s, \"cocina\":%s, \"bano\":%s}",
-        estado_luces.cuarto ? "true" : "false",
-        estado_luces.oficina ? "true" : "false",
-        estado_luces.sala ? "true" : "false",
-        estado_luces.patio ? "true" : "false",
-        estado_luces.cocina ? "true" : "false",
-        estado_luces.bano ? "true" : "false");
+    snprintf(json, 256,
+             "{\"cuarto\":%s, \"oficina\":%s, \"sala\":%s, \"patio\":%s, \"cocina\":%s, \"bano\":%s}",
+             estado_luces.cuarto ? "true" : "false",
+             estado_luces.oficina ? "true" : "false",
+             estado_luces.sala ? "true" : "false",
+             estado_luces.patio ? "true" : "false",
+             estado_luces.cocina ? "true" : "false",
+             estado_luces.bano ? "true" : "false");
     pthread_mutex_unlock(&luces_mutex);
     return json;
 }
@@ -231,12 +238,12 @@ char* generar_json_puertas() {
     pthread_mutex_lock(&puertas_mutex);
     char* json = malloc(256);
     snprintf(json, 256,
-        "{\"delantera\":%s, \"trasera\":%s, \"cuarto\":%s, \"oficina\":%s, \"bano\":%s}",
-        estado_puertas.delantera ? "true" : "false",
-        estado_puertas.trasera ? "true" : "false",
-        estado_puertas.cuarto ? "true" : "false",
-        estado_puertas.oficina ? "true" : "false",
-        estado_puertas.bano ? "true" : "false");
+             "{\"delantera\":%s, \"trasera\":%s, \"cuarto\":%s, \"oficina\":%s, \"bano\":%s}",
+             estado_puertas.delantera ? "true" : "false",
+             estado_puertas.trasera ? "true" : "false",
+             estado_puertas.cuarto ? "true" : "false",
+             estado_puertas.oficina ? "true" : "false",
+             estado_puertas.bano ? "true" : "false");
     pthread_mutex_unlock(&puertas_mutex);
     return json;
 }
@@ -257,10 +264,10 @@ void* cambiar_puertas() {
     cambio_puerta_c = digitalRead(516);
     estado_puertas.cuarto = cambio_puerta_c;
 
-    cambio_puerta_o = digitalRead(529);
+    cambio_puerta_o = digitalRead(520);
     estado_puertas.oficina = cambio_puerta_o;
 
-    cambio_puerta_b = digitalRead(534);
+    cambio_puerta_b = digitalRead(527);
     estado_puertas.bano = cambio_puerta_b;
     return NULL;
 }
@@ -269,11 +276,11 @@ void* manejar_cliente(void* socket_ptr) {
     int socket = *(int*)socket_ptr;
     char buffer[BUFFER_SIZE];
     read(socket, buffer, BUFFER_SIZE);
-    
+
     // Parsear solicitud
     char metodo[16], ruta[256];
     sscanf(buffer, "%s %s", metodo, ruta);
-    
+
     printf("Solicitud: %s %s\n", metodo, ruta);
 
     // Manejar OPTIONS (CORS preflight)
@@ -306,9 +313,9 @@ void* manejar_cliente(void* socket_ptr) {
         write(socket, json, strlen(json));
         free(json);
     }
-    // AGREGAR ESTE ELSE IF
     else if(strcmp(ruta, "/tomar_foto") == 0) {
-        const char* directorio_imagen = "/home/dylanggf/Documents/Empotrados/Casa_TEC/serv_provisional/image.jpg"; // Cambiar por tu directorio
+        tomarFoto(resolution, device, imageName);
+        const char* directorio_imagen = "/home/root/patio.jpg"; // Cambiar por tu directorio
         
         size_t encoded_len;
         char* encoded_data = codificar_imagen(directorio_imagen, &encoded_len);
@@ -339,7 +346,6 @@ void* manejar_cliente(void* socket_ptr) {
         encoded_data = NULL;
     }
 
-
     else if(strcmp(ruta, "/encender_luz") == 0 || strcmp(ruta, "/apagar_luz") == 0) {
         char* cuerpo = strstr(buffer, "\r\n\r\n");
         if (!cuerpo) {
@@ -360,7 +366,7 @@ void* manejar_cliente(void* socket_ptr) {
 
         bool nuevo_estado = (strcmp(ruta, "/encender_luz") == 0);
         pthread_mutex_lock(&luces_mutex);
-        
+
         // AQUI SE HACE LO DE LAS LUCES
         if(strcmp(valor, "cuarto") == 0) {
             estado_luces.cuarto = nuevo_estado;
@@ -393,15 +399,15 @@ void* manejar_cliente(void* socket_ptr) {
             free(socket_ptr);
             return NULL;
         }
-        
+
         pthread_mutex_unlock(&luces_mutex);
         printf("Luz %s cambiada a: %s\n", valor, nuevo_estado ? "ON" : "OFF");
 
         char* json = generar_json_luces();
         char respuesta[512];
         snprintf(respuesta, sizeof(respuesta), "%s{\"mensaje\":\"Luz %s %s\", \"estado\":%s}",
-                headers, valor, nuevo_estado ? "encendida" : "apagada", json);
-        
+                 headers, valor, nuevo_estado ? "encendida" : "apagada", json);
+
         write(socket, respuesta, strlen(respuesta));
         free(json);
     }
@@ -419,50 +425,50 @@ int main() {
     int server_fd, new_socket;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
-    
+
     if((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("socket failed");
         exit(EXIT_FAILURE);
     }
-    
+
     int opt = 1;
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
         perror("setsockopt");
         exit(EXIT_FAILURE);
     }
-    
+
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(PORT);
-    
+
     if(bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
-    
+
     if(listen(server_fd, 10) < 0) {
         perror("listen");
         exit(EXIT_FAILURE);
     }
-    
+
     printf("Servidor escuchando en puerto %d...\n", PORT);
-    
+
     cambiar_puertas();
-    
+
     while(1) {
         int* new_socket = malloc(sizeof(int));
         *new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen);
-        
+
         if (*new_socket < 0) {
             perror("accept");
             free(new_socket);
             continue;
         }
-        
+
         pthread_t hilo;
         pthread_create(&hilo, NULL, manejar_cliente, new_socket);
         pthread_detach(hilo);
     }
-    
+
     return 0;
 }

@@ -25,7 +25,7 @@ function App() {
       const token = btoa(`${username}:${password}`);
       
       // Verificar credenciales con una solicitud
-      const testResponse = await fetch("http://127.0.0.1:5000/estado_luces", {
+      const testResponse = await fetch("http://10.42.0.58:5000/estado_luces", {
         headers: { Authorization: `Basic ${token}` }
       });
       
@@ -61,7 +61,7 @@ function App() {
   const toggleLuz = async (luz) => {
     try {
       const endpoint = luces[luz] ? "/apagar_luz" : "/encender_luz";
-      const response = await authFetch(`http://127.0.0.1:5000${endpoint}`, {
+      const response = await authFetch(`http://10.42.0.58:5000${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ luz }),
@@ -79,7 +79,7 @@ function App() {
 
 const obtenerEstadoPuertas = async () => {
   try {
-    const response = await authFetch("http://127.0.0.1:5000/estado_puertas");
+    const response = await authFetch("http://10.42.0.58:5000/estado_puertas");
     const data = await response.json();
     setPuertas(data);
   } catch (error) {
@@ -90,7 +90,7 @@ const obtenerEstadoPuertas = async () => {
   // Función para actualizar el estado de una puerta
   const actualizarPuerta = async (puerta, estado) => {
     try {
-      await fetch("http://127.0.0.1:5000/actualizar_puerta", {
+      await fetch("http://10.42.0.58:5000/actualizar_puerta", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ puerta, estado }),
@@ -107,7 +107,7 @@ const tomarFoto = async () => {
   setFoto(null); // Limpiar foto anterior
   
   try {
-    const response = await authFetch("http://127.0.0.1:5000/tomar_foto");
+    const response = await authFetch("http://10.42.0.58:5000/tomar_foto");
     
     if (!response.ok) {
       throw new Error(`Error: ${response.status}`);
@@ -139,8 +139,8 @@ const tomarFoto = async () => {
       const fetchUpdates = async () => {
         try {
           const [lucesRes, puertasRes] = await Promise.all([
-            authFetch(`http://127.0.0.1:5000/estado_luces`),
-            authFetch(`http://127.0.0.1:5000/estado_puertas`)
+            authFetch(`http://10.42.0.58:5000/estado_luces`),
+            authFetch(`http://10.42.0.58:5000/estado_puertas`)
           ]);
           
           if (lucesRes.status === 304 && puertasRes.status === 304) return;
@@ -200,16 +200,16 @@ const tomarFoto = async () => {
         <div className="luces">
           <h2>Luces</h2>
           <button
-            onClick={() => toggleLuz("cuarto1")}
-            style={{ backgroundColor: luces.cuarto1 ? "#50fa7b" : "#ff79c6" }}
+            onClick={() => toggleLuz("cuarto")}
+            style={{ backgroundColor: luces.cuarto ? "#50fa7b" : "#ff79c6" }}
           >
-            Cuarto 1: {luces.cuarto1 ? "Encendida" : "Apagada"}
+            Cuarto: {luces.cuarto ? "Encendida" : "Apagada"}
           </button>
           <button
-            onClick={() => toggleLuz("cuarto2")}
-            style={{ backgroundColor: luces.cuarto2 ? "#50fa7b" : "#ff79c6" }}
+            onClick={() => toggleLuz("oficina")}
+            style={{ backgroundColor: luces.oficina ? "#50fa7b" : "#ff79c6" }}
           >
-            Cuarto 2: {luces.cuarto2 ? "Encendida" : "Apagada"}
+            Oficina: {luces.oficina ? "Encendida" : "Apagada"}
           </button>
           <button
             onClick={() => toggleLuz("sala")}
@@ -218,16 +218,22 @@ const tomarFoto = async () => {
             Sala: {luces.sala ? "Encendida" : "Apagada"}
           </button>
           <button
-            onClick={() => toggleLuz("comedor")}
-            style={{ backgroundColor: luces.comedor ? "#50fa7b" : "#ff79c6" }}
+            onClick={() => toggleLuz("patio")}
+            style={{ backgroundColor: luces.patio ? "#50fa7b" : "#ff79c6" }}
           >
-            Comedor: {luces.comedor ? "Encendida" : "Apagada"}
+            Patio: {luces.patio ? "Encendida" : "Apagada"}
           </button>
           <button
             onClick={() => toggleLuz("cocina")}
             style={{ backgroundColor: luces.cocina ? "#50fa7b" : "#ff79c6" }}
           >
             Cocina: {luces.cocina ? "Encendida" : "Apagada"}
+          </button>
+          <button
+            onClick={() => toggleLuz("bano")}
+            style={{ backgroundColor: luces.bano ? "#50fa7b" : "#ff79c6" }}
+          >
+            Baño: {luces.bano ? "Encendida" : "Apagada"}
           </button>
         </div>
         <div className="puertas-camara">
@@ -239,11 +245,14 @@ const tomarFoto = async () => {
             <p data-abierta={puertas.trasera}>
               Puerta Trasera: {puertas.trasera ? "Abierta" : "Cerrada"}
             </p>
-            <p data-abierta={puertas.cuarto1}>
-              Puerta Cuarto 1: {puertas.cuarto1 ? "Abierta" : "Cerrada"}
+            <p data-abierta={puertas.cuarto}>
+              Puerta Cuarto: {puertas.cuarto ? "Abierta" : "Cerrada"}
             </p>
-            <p data-abierta={puertas.cuarto2}>
-              Puerta Cuarto 2: {puertas.cuarto2 ? "Abierta" : "Cerrada"}
+            <p data-abierta={puertas.oficina}>
+              Puerta Oficina: {puertas.oficina ? "Abierta" : "Cerrada"}
+            </p>
+            <p data-abierta={puertas.oficina}>
+              Puerta Baño: {puertas.bano ? "Abierta" : "Cerrada"}
             </p>
           </div>
           <div className="camera">
