@@ -251,7 +251,7 @@ const tomarFoto = async () => {
             <p data-abierta={puertas.oficina}>
               Puerta Oficina: {puertas.oficina ? "Abierta" : "Cerrada"}
             </p>
-            <p data-abierta={puertas.oficina}>
+            <p data-abierta={puertas.bano}>
               Puerta Baño: {puertas.bano ? "Abierta" : "Cerrada"}
             </p>
           </div>
